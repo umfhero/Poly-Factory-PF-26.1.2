@@ -1,0 +1,13 @@
+{
+  "itemGroup.simpledigitalstorage": "Example Mod Tab",
+  "block.simpledigitalstorage.example_block": "Example Block",
+  "item.simpledigitalstorage.example_item": "Example Item",
+
+  "simpledigitalstorage.configuration.title": "Simple Digital Storage Configs",
+  "simpledigitalstorage.configuration.section.simpledigitalstorage.common.toml": "Simple Digital Storage Configs",
+  "simpledigitalstorage.configuration.section.simpledigitalstorage.common.toml.title": "Simple Digital Storage Configs",
+  "simpledigitalstorage.configuration.items": "Item List",
+  "simpledigitalstorage.configuration.logDirtBlock": "Log Dirt Block",
+  "simpledigitalstorage.configuration.magicNumberIntroduction": "Magic Number Text",
+  "simpledigitalstorage.configuration.magicNumber": "Magic Number"
+}
