@@ -1,0 +1,20 @@
+{
+  "textures": {
+    "cable": "simpledigitalstorage:block/drive_bottom",
+    "particle": "simpledigitalstorage:block/drive_bottom"
+  },
+  "elements": [
+    {
+      "comment": "Arm extending from center toward north face. Rotated by blockstate for other directions.",
+      "from": [5, 5, 0],
+      "to": [11, 11, 5],
+      "faces": {
+        "north": { "uv": [5, 5, 11, 11], "texture": "#cable" },
+        "east":  { "uv": [0, 5, 5, 11],  "texture": "#cable" },
+        "west":  { "uv": [0, 5, 5, 11],  "texture": "#cable" },
+        "up":    { "uv": [5, 0, 11, 5],  "texture": "#cable" },
+        "down":  { "uv": [5, 0, 11, 5],  "texture": "#cable" }
+      }
+    }
+  ]
+}

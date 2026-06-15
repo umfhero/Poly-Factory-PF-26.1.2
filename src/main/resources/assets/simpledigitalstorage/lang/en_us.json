@@ -1,13 +1,11 @@
 {
-  "itemGroup.simpledigitalstorage": "Example Mod Tab",
-  "block.simpledigitalstorage.example_block": "Example Block",
-  "item.simpledigitalstorage.example_item": "Example Item",
+  "itemGroup.simpledigitalstorage": "Simple Digital Storage",
+  "block.simpledigitalstorage.storage_hub": "Storage Hub",
+  "block.simpledigitalstorage.storage_cable": "Storage Cable",
+  "container.simpledigitalstorage.storage_hub": "Storage Hub",
 
   "simpledigitalstorage.configuration.title": "Simple Digital Storage Configs",
   "simpledigitalstorage.configuration.section.simpledigitalstorage.common.toml": "Simple Digital Storage Configs",
   "simpledigitalstorage.configuration.section.simpledigitalstorage.common.toml.title": "Simple Digital Storage Configs",
-  "simpledigitalstorage.configuration.items": "Item List",
-  "simpledigitalstorage.configuration.logDirtBlock": "Log Dirt Block",
-  "simpledigitalstorage.configuration.magicNumberIntroduction": "Magic Number Text",
-  "simpledigitalstorage.configuration.magicNumber": "Magic Number"
+  "simpledigitalstorage.configuration.maxCableRange": "Max Cable Range"
 }

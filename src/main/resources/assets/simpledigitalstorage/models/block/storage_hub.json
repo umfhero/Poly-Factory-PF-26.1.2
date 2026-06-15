@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "simpledigitalstorage:block/machine_casing_vent",
+    "up": "simpledigitalstorage:block/machine_casing_turbine",
+    "north": "simpledigitalstorage:block/machine_casing_data_drive",
+    "south": "simpledigitalstorage:block/machine_casing_turbine",
+    "east": "simpledigitalstorage:block/machine_casing_turbine",
+    "west": "simpledigitalstorage:block/machine_casing_turbine",
+    "particle": "simpledigitalstorage:block/machine_casing_turbine"
+  }
+}
