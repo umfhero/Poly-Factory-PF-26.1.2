@@ -1,0 +1,12 @@
+{
+  "type": "polyfactory:fabricating",
+  "ingredient": "minecraft:cobblestone",
+  "fluid_ingredient": "minecraft:lava",
+  "fluid_amount": 1000,
+  "result": {
+    "id": "minecraft:obsidian",
+    "count": 1
+  },
+  "processing_time": 100,
+  "energy_per_tick": 40
+}

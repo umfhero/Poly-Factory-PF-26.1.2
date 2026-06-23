@@ -1,6 +1,7 @@
 package net.umf.polyfactory.gui;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
@@ -12,6 +13,7 @@ import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
 import net.neoforged.neoforge.transfer.item.ResourceHandlerSlot;
 import net.umf.polyfactory.PolyFactory;
 import net.umf.polyfactory.block.entity.FabricatorBlockEntity;
@@ -37,7 +39,10 @@ public class FabricatorMenu extends AbstractContainerMenu {
     public static final int DATA_MAX_ENERGY = DATA_ENERGY + 1;
     public static final int DATA_SPLIT = DATA_MAX_ENERGY + 1;
     public static final int DATA_BLOCKED = DATA_SPLIT + 1;
-    public static final int DATA_COUNT = DATA_BLOCKED + MAX_LANES;
+    public static final int DATA_FLUID_ID = DATA_BLOCKED + MAX_LANES;
+    public static final int DATA_FLUID_AMOUNT = DATA_FLUID_ID + 1;
+    public static final int DATA_FLUID_CAPACITY = DATA_FLUID_AMOUNT + 1;
+    public static final int DATA_COUNT = DATA_FLUID_CAPACITY + 1;
 
     private final ContainerData data;
     private final ContainerLevelAccess access;
@@ -46,9 +51,10 @@ public class FabricatorMenu extends AbstractContainerMenu {
     private final int speedLevel;
     private final int energyLevel;
     private final int slotLevel;
+    private final int fluidLevel;
 
     private FabricatorMenu(int containerId, Inventory playerInv, BlockPos pos, FabricatorItemHandler itemHandler, ContainerData data,
-                            int activeLanes, int speedLevel, int energyLevel, int slotLevel) {
+                            int activeLanes, int speedLevel, int energyLevel, int slotLevel, int fluidLevel) {
         super(ModMenuTypes.FABRICATOR_MENU.get(), containerId);
         this.access = ContainerLevelAccess.create(playerInv.player.level(), pos);
         this.pos = pos;
@@ -58,6 +64,7 @@ public class FabricatorMenu extends AbstractContainerMenu {
         this.speedLevel = speedLevel;
         this.energyLevel = energyLevel;
         this.slotLevel = slotLevel;
+        this.fluidLevel = fluidLevel;
 
         for (int lane = 0; lane < activeLanes; lane++) {
             int y = LANE_Y_START + lane * LANE_HEIGHT;
@@ -68,9 +75,23 @@ public class FabricatorMenu extends AbstractContainerMenu {
         this.addDataSlots(data);
     }
 
+    /**
+     * Up to 4 upgrade icons (Speed/Energy/Slots/Fluid) get stacked and vertically centered next to
+     * the lane area (see {@code FabricatorScreen#renderUpgradeIcons}). With few lanes that stack is
+     * taller than the lanes themselves, so the lane area's height for layout purposes - title
+     * clearance above, inventory label clearance below - has to be at least this, regardless of
+     * how few lanes are actually unlocked.
+     */
+    public static final int MIN_LANE_AREA_HEIGHT = 64;
+
+    /** Effective height of the lane area for vertical layout (see {@link #MIN_LANE_AREA_HEIGHT}). */
+    public static int laneAreaHeight(int activeLanes) {
+        return Math.max(activeLanes * LANE_HEIGHT, MIN_LANE_AREA_HEIGHT);
+    }
+
     /** Top Y coordinate for the player inventory block, below however many lane rows are shown. */
     public static int inventoryY(int activeLanes) {
-        return LANE_Y_START + activeLanes * LANE_HEIGHT + 14;
+        return LANE_Y_START + laneAreaHeight(activeLanes) + 14;
     }
 
     public static int imageHeight(int activeLanes) {
@@ -81,9 +102,10 @@ public class FabricatorMenu extends AbstractContainerMenu {
         BlockEntity be = playerInv.player.level().getBlockEntity(pos);
         if (be instanceof FabricatorBlockEntity fabricator) {
             return new FabricatorMenu(containerId, playerInv, pos, fabricator.getItemHandler(), fabricator.getContainerData(),
-                    fabricator.getActiveLanes(), fabricator.getSpeedLevel(), fabricator.getEnergyLevel(), fabricator.getSlotLevel());
+                    fabricator.getActiveLanes(), fabricator.getSpeedLevel(), fabricator.getEnergyLevel(), fabricator.getSlotLevel(),
+                    fabricator.getFluidLevel());
         }
-        return new FabricatorMenu(containerId, playerInv, pos, new FabricatorItemHandler(), new SimpleContainerData(DATA_COUNT), 1, 0, 0, 0);
+        return new FabricatorMenu(containerId, playerInv, pos, new FabricatorItemHandler(), new SimpleContainerData(DATA_COUNT), 1, 0, 0, 0, 0);
     }
 
     public static FabricatorMenu clientFactory(int containerId, Inventory playerInv, RegistryFriendlyByteBuf buf) {
@@ -92,8 +114,9 @@ public class FabricatorMenu extends AbstractContainerMenu {
         int speedLevel = buf.readVarInt();
         int energyLevel = buf.readVarInt();
         int slotLevel = buf.readVarInt();
+        int fluidLevel = buf.readVarInt();
         return new FabricatorMenu(containerId, playerInv, pos, new FabricatorItemHandler(), new SimpleContainerData(DATA_COUNT),
-                activeLanes, speedLevel, energyLevel, slotLevel);
+                activeLanes, speedLevel, energyLevel, slotLevel, fluidLevel);
     }
 
     public int getActiveLanes() {
@@ -110,6 +133,10 @@ public class FabricatorMenu extends AbstractContainerMenu {
 
     public int getSlotLevel() {
         return this.slotLevel;
+    }
+
+    public int getFluidLevel() {
+        return this.fluidLevel;
     }
 
     public BlockPos getPos() {
@@ -142,6 +169,25 @@ public class FabricatorMenu extends AbstractContainerMenu {
 
     public int getMaxEnergyStored() {
         return this.data.get(DATA_MAX_ENERGY);
+    }
+
+    public FluidResource getFluidResource() {
+        return BuiltInRegistries.FLUID.get(this.data.get(DATA_FLUID_ID))
+                .map(FluidResource::of)
+                .orElse(FluidResource.EMPTY);
+    }
+
+    public int getFluidAmount() {
+        return this.data.get(DATA_FLUID_AMOUNT);
+    }
+
+    public int getFluidCapacity() {
+        return this.data.get(DATA_FLUID_CAPACITY);
+    }
+
+    public float getFluidRatio() {
+        int max = this.getFluidCapacity();
+        return max != 0 ? Mth.clamp((float) this.getFluidAmount() / max, 0.0F, 1.0F) : 0.0F;
     }
 
     @Override

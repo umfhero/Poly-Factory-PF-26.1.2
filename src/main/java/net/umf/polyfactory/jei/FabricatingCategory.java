@@ -5,6 +5,7 @@ import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.helpers.IGuiHelper;
+import mezz.jei.api.neoforge.NeoForgeTypes;
 import mezz.jei.api.recipe.IFocusGroup;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import mezz.jei.api.recipe.types.IRecipeType;
@@ -14,32 +15,36 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.neoforged.neoforge.fluids.FluidStack;
 import net.umf.polyfactory.PolyFactory;
 import net.umf.polyfactory.recipe.FabricatingRecipe;
 
 /**
- * Renders Fabricator {@link FabricatingRecipe}s in JEI: an input slot, an output slot, and the
- * energy cost/processing time for the recipe - so a player checking the Fabricator's "uses" sees
- * every recipe it can run along with what each one costs, similar to Mekanism's machine
- * categories.
+ * Renders Fabricator {@link FabricatingRecipe}s in JEI: an item input slot (plus a fluid input
+ * slot when the recipe needs one), an output slot, and the energy cost/processing time for the
+ * recipe - so a player checking the Fabricator's "uses" sees every recipe it can run along with
+ * what each one costs, similar to Mekanism's machine categories.
  */
 public class FabricatingCategory implements IRecipeCategory<FabricatingRecipe> {
 
     private static final int WIDTH = 120;
-    private static final int HEIGHT = 50;
+    private static final int HEIGHT = 72;
     private static final int SLOT_SIZE = 18;
+    private static final int SLOT_GAP = 2;
 
     private static final int INPUT_X = 4;
     private static final int OUTPUT_X = WIDTH - SLOT_SIZE - 4;
-    private static final int SLOT_Y = 4;
+    private static final int ITEM_INPUT_Y = 4;
+    private static final int FLUID_INPUT_Y = ITEM_INPUT_Y + SLOT_SIZE + SLOT_GAP;
+    private static final int OUTPUT_Y = ITEM_INPUT_Y + (FLUID_INPUT_Y + SLOT_SIZE - ITEM_INPUT_Y - SLOT_SIZE) / 2;
 
-    private static final int ARROW_X = INPUT_X + SLOT_SIZE + 2;
-    private static final int ARROW_WIDTH = OUTPUT_X - 2 - ARROW_X;
-    private static final int ARROW_HEIGHT = 16;
-    private static final int ARROW_Y = SLOT_Y + (SLOT_SIZE - ARROW_HEIGHT) / 2;
+    private static final int ARROW_WIDTH = 24;
+    private static final int ARROW_HEIGHT = 14;
+    private static final int ARROW_X = INPUT_X + SLOT_SIZE + (OUTPUT_X - (INPUT_X + SLOT_SIZE) - ARROW_WIDTH) / 2;
+    private static final int ARROW_Y = OUTPUT_Y + (SLOT_SIZE - ARROW_HEIGHT) / 2;
     private static final int ARROW_COLOR = 0xFF8B8B8B;
 
-    private static final int TEXT_Y_ENERGY = SLOT_Y + SLOT_SIZE + 6;
+    private static final int TEXT_Y_ENERGY = FLUID_INPUT_Y + SLOT_SIZE + 6;
     private static final int TEXT_Y_TIME = TEXT_Y_ENERGY + 10;
     private static final int TEXT_COLOR = 0xFF404040;
 
@@ -76,10 +81,13 @@ public class FabricatingCategory implements IRecipeCategory<FabricatingRecipe> {
 
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, FabricatingRecipe recipe, IFocusGroup focuses) {
-        builder.addInputSlot(INPUT_X, SLOT_Y)
+        builder.addInputSlot(INPUT_X, ITEM_INPUT_Y)
                 .setStandardSlotBackground()
                 .add(recipe.input());
-        builder.addOutputSlot(OUTPUT_X, SLOT_Y)
+        recipe.fluidIngredient().ifPresent(fluid -> builder.addInputSlot(INPUT_X, FLUID_INPUT_Y)
+                .setStandardSlotBackground()
+                .add(NeoForgeTypes.FLUID_STACK, new FluidStack(fluid, recipe.fluidAmount())));
+        builder.addOutputSlot(OUTPUT_X, OUTPUT_Y)
                 .setOutputSlotBackground()
                 .add(sampleOutput(recipe));
     }

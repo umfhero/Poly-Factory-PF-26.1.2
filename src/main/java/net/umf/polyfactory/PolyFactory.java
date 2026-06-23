@@ -48,6 +48,7 @@ public class PolyFactory {
     public static final DeferredItem<Item> UPGRADE_SPEED_ITEM = ITEMS.registerSimpleItem("upgrade_speed");
     public static final DeferredItem<Item> UPGRADE_ENERGY_ITEM = ITEMS.registerSimpleItem("upgrade_energy");
     public static final DeferredItem<Item> UPGRADE_SLOTS_ITEM = ITEMS.registerSimpleItem("upgrade_slots");
+    public static final DeferredItem<Item> UPGRADE_FLUID_ITEM = ITEMS.registerSimpleItem("upgrade_fluid");
 
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> POLY_FACTORY_TAB =
             CREATIVE_MODE_TABS.register("polyfactory_tab", () -> CreativeModeTab.builder()
@@ -60,6 +61,7 @@ public class PolyFactory {
                         output.accept(UPGRADE_SPEED_ITEM.get());
                         output.accept(UPGRADE_ENERGY_ITEM.get());
                         output.accept(UPGRADE_SLOTS_ITEM.get());
+                        output.accept(UPGRADE_FLUID_ITEM.get());
                     })
                     .build());
 

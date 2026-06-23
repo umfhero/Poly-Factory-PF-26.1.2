@@ -1,25 +1,34 @@
 package net.umf.polyfactory.gui;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.block.FluidModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import net.neoforged.neoforge.client.fluid.FluidTintSource;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
 import net.umf.polyfactory.PolyFactory;
+import net.umf.polyfactory.network.ClearFluidPacket;
 import net.umf.polyfactory.network.ToggleSplitPacket;
 
 /**
  * Client-side GUI for the Fabricator. Rendered programmatically (no texture atlas): a panel, one
  * colour-coded input/output row per unlocked lane each with a plain arrow that fills in as it
- * processes, a green FE energy bar spanning the lane area on the right, a small stack of upgrade
- * icons (with an "x{level}" label each) on the left of the lane area, and (once a Slot Upgrade is
- * installed) a button to toggle evenly splitting incoming items across every unlocked lane instead
- * of filling lane 0 first.
+ * processes, a green FE energy bar and a blue fluid tank bar (hover for fluid name/amount)
+ * spanning the lane area on the right, a small stack of upgrade icons (with an "x{level}" label
+ * each) on the left of the lane area, and buttons to toggle evenly splitting incoming items across
+ * every unlocked lane (once a Slot Upgrade is installed) and to void the fluid tank.
  */
 public class FabricatorScreen extends AbstractContainerScreen<FabricatorMenu> {
 
@@ -32,6 +41,8 @@ public class FabricatorScreen extends AbstractContainerScreen<FabricatorMenu> {
             + ((FabricatorMenu.LANE_OUTPUT_X - (FabricatorMenu.LANE_INPUT_X + FabricatorMenu.SLOT_SIZE)) - ARROW_WIDTH) / 2;
 
     private static final int ENERGY_WIDTH = 6;
+    private static final int FLUID_WIDTH = 6;
+    private static final int BAR_GAP = 2;
 
     private static final int BLOCKED_COLOR = 0xFFE53935;
 
@@ -73,10 +84,27 @@ public class FabricatorScreen extends AbstractContainerScreen<FabricatorMenu> {
             renderProgressArrow(graphics, lane);
         }
         renderEnergyBar(graphics, mouseX, mouseY, activeLanes);
+        renderFluidBar(graphics, mouseX, mouseY, activeLanes);
         renderUpgradeIcons(graphics, activeLanes);
         renderSplitToggle(graphics);
+        renderTrashButton(graphics);
 
         super.extractContents(graphics, mouseX, mouseY, partialTick);
+    }
+
+    private int trashButtonWidth() {
+        return this.font.width("Trash") + 6;
+    }
+
+    private int trashButtonX() {
+        return this.leftPos + this.imageWidth - 8 - this.trashButtonWidth();
+    }
+
+    private void renderTrashButton(GuiGraphicsExtractor graphics) {
+        int x = this.trashButtonX();
+        int y = this.topPos + SPLIT_BUTTON_Y;
+        graphics.fill(x, y, x + this.trashButtonWidth(), y + SPLIT_BUTTON_HEIGHT, 0xFF7D3A3A);
+        graphics.text(this.font, "Trash", x + 3, y + 2, 0xFFFFFFFF, false);
     }
 
     private int splitButtonWidth() {
@@ -84,7 +112,7 @@ public class FabricatorScreen extends AbstractContainerScreen<FabricatorMenu> {
     }
 
     private int splitButtonX() {
-        return this.leftPos + this.imageWidth - 8 - this.splitButtonWidth();
+        return this.trashButtonX() - BAR_GAP - this.splitButtonWidth();
     }
 
     private void renderSplitToggle(GuiGraphicsExtractor graphics) {
@@ -100,6 +128,13 @@ public class FabricatorScreen extends AbstractContainerScreen<FabricatorMenu> {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        int trashX = this.trashButtonX();
+        int trashY = this.topPos + SPLIT_BUTTON_Y;
+        if (event.x() >= trashX && event.x() < trashX + this.trashButtonWidth()
+                && event.y() >= trashY && event.y() < trashY + SPLIT_BUTTON_HEIGHT) {
+            ClientPacketDistributor.sendToServer(new ClearFluidPacket(this.menu.getPos()));
+            return true;
+        }
         if (this.menu.getActiveLanes() > 1) {
             int x = this.splitButtonX();
             int y = this.topPos + SPLIT_BUTTON_Y;
@@ -118,8 +153,13 @@ public class FabricatorScreen extends AbstractContainerScreen<FabricatorMenu> {
      * takes up as much room as there are upgrades to show.
      */
     private void renderUpgradeIcons(GuiGraphicsExtractor graphics, int activeLanes) {
-        Item[] items = {PolyFactory.UPGRADE_SPEED_ITEM.get(), PolyFactory.UPGRADE_ENERGY_ITEM.get(), PolyFactory.UPGRADE_SLOTS_ITEM.get()};
-        int[] levels = {this.menu.getSpeedLevel(), this.menu.getEnergyLevel(), this.menu.getSlotLevel()};
+        Item[] items = {
+                PolyFactory.UPGRADE_SPEED_ITEM.get(), PolyFactory.UPGRADE_ENERGY_ITEM.get(),
+                PolyFactory.UPGRADE_SLOTS_ITEM.get(), PolyFactory.UPGRADE_FLUID_ITEM.get()
+        };
+        int[] levels = {
+                this.menu.getSpeedLevel(), this.menu.getEnergyLevel(), this.menu.getSlotLevel(), this.menu.getFluidLevel()
+        };
 
         int rows = 0;
         for (int level : levels) {
@@ -131,7 +171,7 @@ public class FabricatorScreen extends AbstractContainerScreen<FabricatorMenu> {
             return;
         }
 
-        int laneAreaCenterY = this.topPos + FabricatorMenu.LANE_Y_START + (activeLanes * FabricatorMenu.LANE_HEIGHT) / 2;
+        int laneAreaCenterY = this.topPos + FabricatorMenu.LANE_Y_START + FabricatorMenu.laneAreaHeight(activeLanes) / 2;
         int x = this.leftPos + UPGRADE_ICON_X;
         int y = laneAreaCenterY - (rows * UPGRADE_ROW_HEIGHT) / 2;
 
@@ -214,6 +254,62 @@ public class FabricatorScreen extends AbstractContainerScreen<FabricatorMenu> {
             graphics.setTooltipForNextFrame(
                     Component.literal(this.menu.getEnergyStored() + " / " + this.menu.getMaxEnergyStored() + " FE"), mouseX, mouseY);
         }
+    }
+
+    private void renderFluidBar(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int activeLanes) {
+        int height = activeLanes * FabricatorMenu.LANE_HEIGHT - 6;
+        int x = this.leftPos + this.imageWidth - 8 - ENERGY_WIDTH - BAR_GAP - FLUID_WIDTH;
+        int y = this.topPos + FabricatorMenu.LANE_Y_START;
+        graphics.fill(x, y, x + FLUID_WIDTH, y + height, 0xFF373737);
+
+        FluidResource resource = this.menu.getFluidResource();
+        int filledHeight = Mth.ceil(this.menu.getFluidRatio() * (height - 2));
+        if (filledHeight > 0 && !resource.isEmpty()) {
+            int fillTop = y + height - 1 - filledHeight;
+            int fillBottom = y + height - 1;
+            renderFluidTexture(graphics, resource.getFluid(), x + 1, fillTop, x + FLUID_WIDTH - 1, fillBottom);
+        }
+
+        if (mouseX >= x && mouseX < x + FLUID_WIDTH && mouseY >= y && mouseY < y + height) {
+            String name = resource.isEmpty() ? "Empty" : resource.getHoverName().getString();
+            String amounts = formatFluidPair(this.menu.getFluidAmount(), this.menu.getFluidCapacity());
+            graphics.setTooltipForNextFrame(Component.literal(name + ": " + amounts), mouseX, mouseY);
+        }
+    }
+
+    /**
+     * Tiles the fluid's actual still-block sprite (tinted the same way it would be in-world, e.g.
+     * water's biome blue) vertically across the filled region, instead of a flat placeholder
+     * color, so lava looks like lava and water looks like water.
+     */
+    private static void renderFluidTexture(GuiGraphicsExtractor g, Fluid fluid, int x0, int yTop, int x1, int yBottom) {
+        FluidState state = fluid.defaultFluidState();
+        FluidModel model = Minecraft.getInstance().getModelManager().getFluidStateModelSet().get(state);
+        TextureAtlasSprite sprite = model.stillMaterial().sprite();
+        FluidTintSource tintSource = model.fluidTintSource();
+        int tint = (tintSource != null ? tintSource.color(state) : 0xFFFFFF) | 0xFF000000;
+
+        int width = x1 - x0;
+        int spriteHeight = Math.max(1, sprite.contents().height());
+
+        g.enableScissor(x0, yTop, x1, yBottom);
+        for (int rowBottom = yBottom; rowBottom > yTop; rowBottom -= spriteHeight) {
+            g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x0, rowBottom - spriteHeight, width, spriteHeight, tint);
+        }
+        g.disableScissor();
+    }
+
+    /**
+     * Shows both numbers in whole buckets (even "0") when they're both even bucket multiples -
+     * including an empty tank, so hovering an empty tank still shows how many buckets it can
+     * hold - otherwise falls back to the raw mB for both.
+     */
+    private static String formatFluidPair(int amountMb, int capacityMb) {
+        if (amountMb % 1000 == 0 && capacityMb % 1000 == 0) {
+            int capacityBuckets = capacityMb / 1000;
+            return (amountMb / 1000) + " / " + capacityBuckets + (capacityBuckets == 1 ? " Bucket" : " Buckets");
+        }
+        return amountMb + " / " + capacityMb + " mB";
     }
 
     private void renderPanel(GuiGraphicsExtractor g, int x, int y, int w, int h) {

@@ -24,14 +24,16 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.neoforged.neoforge.transfer.fluid.FluidUtil;
 import net.umf.polyfactory.block.entity.FabricatorBlockEntity;
 import net.umf.polyfactory.block.entity.ModBlockEntities;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * The Fabricator: a directional processing machine. Right-clicking with an upgrade item in hand
- * installs it; right-clicking with anything else (or empty-handed) opens its GUI. Pipes from
- * other mods interact with its input/output slots and FE buffer via the registered capabilities.
+ * installs it; right-clicking with a fluid container fills/drains its tank; right-clicking with
+ * anything else (or empty-handed) opens its GUI. Pipes from other mods interact with its
+ * input/output slots, FE buffer, and fluid tank via the registered capabilities.
  */
 public class FabricatorBlock extends Block implements EntityBlock {
 
@@ -63,6 +65,10 @@ public class FabricatorBlock extends Block implements EntityBlock {
             ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         UpgradeType type = UpgradeType.fromItem(stack.getItem());
         if (type == null) {
+            if (!level.isClientSide() && level.getBlockEntity(pos) instanceof FabricatorBlockEntity fabricator
+                    && FluidUtil.interactWithFluidHandler(player, hand, pos, fabricator.getFluidHandler(), null)) {
+                return InteractionResult.SUCCESS;
+            }
             return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
         if (!level.isClientSide()) {

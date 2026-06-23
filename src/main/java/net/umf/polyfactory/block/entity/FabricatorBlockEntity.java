@@ -1,6 +1,8 @@
 package net.umf.polyfactory.block.entity;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -17,8 +19,10 @@ import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
 import net.umf.polyfactory.Config;
@@ -53,12 +57,14 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
     private final FabricatorIoView ioView = new FabricatorIoView(this.itemHandler);
     private final FabricatorEnergyHandler energyHandler = new FabricatorEnergyHandler(
             Config.FABRICATOR_ENERGY_CAPACITY.get(), Config.FABRICATOR_MAX_ENERGY_INSERT.get(), Config.FABRICATOR_MAX_ENERGY_INSERT.get());
+    private final FabricatorFluidHandler fluidHandler = new FabricatorFluidHandler(Config.FABRICATOR_FLUID_CAPACITY.get());
     private final RecipeManager.CachedCheck<SingleRecipeInput, FabricatingRecipe> quickCheck =
             RecipeManager.createCheck(ModRecipes.FABRICATING_TYPE.get());
 
     private int speedLevel;
     private int energyLevel;
     private int slotLevel;
+    private int fluidLevel;
 
     private final int[] laneProgress = new int[FabricatorItemHandler.MAX_LANES];
     private final int[] laneMaxProgress = new int[FabricatorItemHandler.MAX_LANES];
@@ -83,7 +89,16 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
             if (index == FabricatorMenu.DATA_SPLIT) {
                 return FabricatorBlockEntity.this.itemHandler.isSplitInputs() ? 1 : 0;
             }
-            if (index >= FabricatorMenu.DATA_BLOCKED) {
+            if (index == FabricatorMenu.DATA_FLUID_ID) {
+                return BuiltInRegistries.FLUID.getId(FabricatorBlockEntity.this.fluidHandler.getResource(0).getFluid());
+            }
+            if (index == FabricatorMenu.DATA_FLUID_AMOUNT) {
+                return FabricatorBlockEntity.this.fluidHandler.getAmountAsInt(0);
+            }
+            if (index == FabricatorMenu.DATA_FLUID_CAPACITY) {
+                return FabricatorBlockEntity.this.fluidHandler.getCapacityAsInt(0, FabricatorBlockEntity.this.fluidHandler.getResource(0));
+            }
+            if (index >= FabricatorMenu.DATA_BLOCKED && index < FabricatorMenu.DATA_BLOCKED + FabricatorItemHandler.MAX_LANES) {
                 return FabricatorBlockEntity.this.laneBlocked[index - FabricatorMenu.DATA_BLOCKED] ? 1 : 0;
             }
             return 0;
@@ -122,6 +137,16 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
         return this.energyHandler;
     }
 
+    public FabricatorFluidHandler getFluidHandler() {
+        return this.fluidHandler;
+    }
+
+    /** Voids whatever fluid is currently in the tank (the GUI's "Trash" button). */
+    public void clearFluid() {
+        this.fluidHandler.set(0, FluidResource.EMPTY, 0);
+        this.setChanged();
+    }
+
     public ContainerData getContainerData() {
         return this.dataAccess;
     }
@@ -142,11 +167,16 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
         return this.slotLevel;
     }
 
+    public int getFluidLevel() {
+        return this.fluidLevel;
+    }
+
     public int getUpgradeLevel(UpgradeType type) {
         return switch (type) {
             case SPEED -> this.speedLevel;
             case ENERGY -> this.energyLevel;
             case SLOTS -> this.slotLevel;
+            case FLUID -> this.fluidLevel;
         };
     }
 
@@ -165,6 +195,7 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
         buf.writeVarInt(this.speedLevel);
         buf.writeVarInt(this.energyLevel);
         buf.writeVarInt(this.slotLevel);
+        buf.writeVarInt(this.fluidLevel);
     }
 
     /**
@@ -197,6 +228,13 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
                     this.level.setBlock(this.worldPosition, state.setValue(FabricatorBlock.SLOT_TIER, this.slotLevel), 3);
                 }
             }
+            case FLUID -> {
+                if (this.fluidLevel >= UpgradeType.MAX_LEVEL) {
+                    return false;
+                }
+                this.fluidLevel++;
+                this.recomputeFluidLimits();
+            }
         }
         this.setChanged();
         return true;
@@ -210,6 +248,14 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
         int capacity = Config.FABRICATOR_ENERGY_CAPACITY.get() * multiplier;
         int rate = Config.FABRICATOR_MAX_ENERGY_INSERT.get() * multiplier;
         this.energyHandler.setLimits(capacity, rate, rate);
+    }
+
+    private void recomputeFluidLimits() {
+        int multiplier = 1;
+        for (int i = 0; i < this.fluidLevel; i++) {
+            multiplier *= 3;
+        }
+        this.fluidHandler.setCapacity(Config.FABRICATOR_FLUID_CAPACITY.get() * multiplier);
     }
 
     public static void serverTick(ServerLevel level, BlockPos pos, BlockState state, FabricatorBlockEntity be) {
@@ -262,7 +308,7 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
             }
         }
 
-        if (recipe == null || result.isEmpty()) {
+        if (recipe == null || result.isEmpty() || !hasRequiredFluid(be.fluidHandler, recipe)) {
             be.laneProgress[lane] = 0;
             be.laneMaxProgress[lane] = 0;
             be.laneBlocked[lane] = false;
@@ -302,10 +348,31 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
                 be.itemHandler.extract(inputSlot, inputResource, 1, tx);
                 tx.commit();
             }
+            consumeFluid(be.fluidHandler, recipe);
             insertOutput(be.itemHandler, outputSlot, result);
             be.laneProgress[lane] = 0;
         }
         return true;
+    }
+
+    private static boolean hasRequiredFluid(FabricatorFluidHandler fluidHandler, FabricatingRecipe recipe) {
+        Optional<Holder<Fluid>> required = recipe.fluidIngredient();
+        if (required.isEmpty()) {
+            return true;
+        }
+        return fluidHandler.getResource(0).typeHolder().equals(required.get())
+                && fluidHandler.getAmountAsLong(0) >= recipe.fluidAmount();
+    }
+
+    private static void consumeFluid(FabricatorFluidHandler fluidHandler, FabricatingRecipe recipe) {
+        if (recipe.fluidIngredient().isEmpty()) {
+            return;
+        }
+        FluidResource tankResource = fluidHandler.getResource(0);
+        try (Transaction tx = Transaction.openRoot()) {
+            fluidHandler.extract(0, tankResource, recipe.fluidAmount(), tx);
+            tx.commit();
+        }
     }
 
     private static boolean canInsertOutput(FabricatorItemHandler handler, int outputSlot, ItemStack result) {
@@ -334,12 +401,15 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
         super.loadAdditional(input);
         this.itemHandler.deserialize(input.childOrEmpty("items"));
         this.energyHandler.deserialize(input.childOrEmpty("energy"));
+        this.fluidHandler.deserialize(input.childOrEmpty("fluid"));
         this.speedLevel = Math.min(UpgradeType.MAX_LEVEL, input.getIntOr("speed_level", 0));
         this.energyLevel = Math.min(UpgradeType.MAX_LEVEL, input.getIntOr("energy_level", 0));
         this.slotLevel = Math.min(UpgradeType.MAX_LEVEL, input.getIntOr("slot_level", 0));
+        this.fluidLevel = Math.min(UpgradeType.MAX_LEVEL, input.getIntOr("fluid_level", 0));
         this.itemHandler.setActiveLanes(this.getActiveLanes());
         this.itemHandler.setSplitInputs(input.getBooleanOr("split_inputs", false));
         this.recomputeEnergyLimits();
+        this.recomputeFluidLimits();
         for (int lane = 0; lane < FabricatorItemHandler.MAX_LANES; lane++) {
             this.laneProgress[lane] = input.getIntOr("progress_" + lane, 0);
             this.laneMaxProgress[lane] = input.getIntOr("max_progress_" + lane, 0);
@@ -351,9 +421,11 @@ public class FabricatorBlockEntity extends BlockEntity implements MenuProvider {
         super.saveAdditional(output);
         this.itemHandler.serialize(output.child("items"));
         this.energyHandler.serialize(output.child("energy"));
+        this.fluidHandler.serialize(output.child("fluid"));
         output.putInt("speed_level", this.speedLevel);
         output.putInt("energy_level", this.energyLevel);
         output.putInt("slot_level", this.slotLevel);
+        output.putInt("fluid_level", this.fluidLevel);
         output.putBoolean("split_inputs", this.itemHandler.isSplitInputs());
         for (int lane = 0; lane < FabricatorItemHandler.MAX_LANES; lane++) {
             output.putInt("progress_" + lane, this.laneProgress[lane]);

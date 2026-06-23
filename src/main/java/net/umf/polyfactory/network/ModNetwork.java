@@ -15,5 +15,11 @@ public class ModNetwork {
                 ToggleSplitPacket.STREAM_CODEC,
                 ToggleSplitPacket::handle
         );
+
+        registrar.playToServer(
+                ClearFluidPacket.TYPE,
+                ClearFluidPacket.STREAM_CODEC,
+                ClearFluidPacket::handle
+        );
     }
 }

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "BWB",
+    "WUW",
+    "BWB"
+  ],
+  "key": {
+    "B": "minecraft:bucket",
+    "W": "minecraft:water_bucket",
+    "U": "polyfactory:upgrade"
+  },
+  "result": {
+    "id": "polyfactory:upgrade_fluid",
+    "count": 1
+  }
+}

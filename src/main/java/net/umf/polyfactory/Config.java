@@ -22,5 +22,11 @@ public class Config {
                     "process slower than its nominal \"instant\" speed.")
             .defineInRange("fabricatorMaxEnergyInsert", 200, 1, 100000);
 
+    public static final ModConfigSpec.IntValue FABRICATOR_FLUID_CAPACITY = BUILDER
+            .comment(
+                    "Base fluid tank capacity (in mB) of an unupgraded Fabricator (4000 mB = 4 buckets).",
+                    "Each Fluid Upgrade level multiplies this by 3 (so level 3 = 27x base), same as Energy Upgrades.")
+            .defineInRange("fabricatorFluidCapacity", 4000, 1000, 1000000);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }

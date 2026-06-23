@@ -4,11 +4,12 @@ import net.minecraft.world.item.Item;
 import net.umf.polyfactory.PolyFactory;
 import org.jetbrains.annotations.Nullable;
 
-/** The 3 upgrade kinds a Fabricator can be shift-right-clicked with, each up to {@code MAX_LEVEL}. */
+/** The upgrade kinds a Fabricator can be shift-right-clicked with, each up to {@code MAX_LEVEL}. */
 public enum UpgradeType {
     SPEED,
     ENERGY,
-    SLOTS;
+    SLOTS,
+    FLUID;
 
     public static final int MAX_LEVEL = 3;
 
@@ -22,6 +23,9 @@ public enum UpgradeType {
         }
         if (item == PolyFactory.UPGRADE_SLOTS_ITEM.get()) {
             return SLOTS;
+        }
+        if (item == PolyFactory.UPGRADE_FLUID_ITEM.get()) {
+            return FLUID;
         }
         return null;
     }
