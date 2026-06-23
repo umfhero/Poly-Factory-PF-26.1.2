@@ -1,25 +1,42 @@
+# Poly Factory
 
-Installation information
-=======
+<p align="center">
+  <img src="src/main/resources/assets/polyfactory/textures/block/fabricator_front.png" width="64" alt="Fabricator front texture, idle">
+  <img src="src/main/resources/assets/polyfactory/textures/block/fabricator_front_on.png" width="64" alt="Fabricator front texture, active">
+</p>
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+Poly Factory is a Minecraft mod for NeoForge. It adds a single machine block, the Fabricator, along with a set of items used to upgrade it.
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+## What the Fabricator does
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+The Fabricator is a block that processes items using stored Forge Energy (FE). It has one or more pairs of input and output slots. Place an item in an input slot by hand through the block menu, or feed it in automatically with pipes or another item transport mod, and the Fabricator will spend stored FE over time to process it. When processing finishes, the result appears in the matching output slot.
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+Each input and output pair has its own progress arrow in the block menu. The arrow fills in while that pair is processing, and turns fully red if it cannot continue, for example because its output slot is already full or holds an item the result cannot stack with.
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+## Upgrades
+
+The Fabricator accepts three kinds of upgrade item, each of which can be applied up to level 3.
+
+<p align="center">
+  <img src="src/main/resources/assets/polyfactory/textures/item/upgrade_speed.png" width="32" alt="Speed Upgrade">
+  <img src="src/main/resources/assets/polyfactory/textures/item/upgrade_energy.png" width="32" alt="Energy Upgrade">
+  <img src="src/main/resources/assets/polyfactory/textures/item/upgrade_slots.png" width="32" alt="Slot Upgrade">
+</p>
+
+* Speed Upgrade. Reduces the time each processing cycle takes.
+* Energy Upgrade. Increases how much FE the Fabricator can store and how fast it can accept FE.
+* Slot Upgrade. Unlocks an additional input and output pair, called a lane, so the Fabricator can process more than one item at once.
+
+Once more than one lane is unlocked, the block menu includes a Split toggle. Turning it on tells the Fabricator to automatically spread anything placed in an input slot evenly across every unlocked lane, instead of filling one lane before using the rest.
+
+## Status
+
+Poly Factory is currently a work in progress. Blocks, items, textures, and balance are all expected to change as development continues.
+
+## Specifications
+
+* Minecraft version: 26.1.2
+* NeoForge version: 26.1.2.75
+* Mod version: 1.0.0
+* Java version: 25
+* License: All Rights Reserved
